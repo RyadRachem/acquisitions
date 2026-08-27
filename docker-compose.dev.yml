@@ -1,0 +1,60 @@
+services:
+  # ==========================================
+  # Neon Local Proxy Service (Local Development)
+  # Automatically manages ephemeral Neon database branches
+  # ==========================================
+  neon-local:
+    image: neondatabase/neon_local:latest
+    container_name: neon-local
+    ports:
+      - "5432:5432"
+    environment:
+      # Required Neon Cloud API credentials
+      NEON_API_KEY: ${NEON_API_KEY}
+      NEON_PROJECT_ID: ${NEON_PROJECT_ID}
+      # Ephemeral branching: Creates a new isolated branch from parent on startup, deletes on shutdown
+      PARENT_BRANCH_ID: ${PARENT_BRANCH_ID:-}
+      # Connect to a specific existing branch instead (mutually exclusive with PARENT_BRANCH_ID)
+      # BRANCH_ID: ${BRANCH_ID:-}
+      # Set to false if you want branches to persist after `docker compose down`
+      DELETE_BRANCH: ${DELETE_BRANCH:-true}
+    networks:
+      - neon-dev-net
+    restart: unless-stopped
+
+  # ==========================================
+  # Application Service (Development Mode)
+  # ==========================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    container_name: acquisitions-app-dev
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=${PORT:-3000}
+      - LOG_LEVEL=${LOG_LEVEL:-debug}
+      # Connect to Neon Local proxy via internal Compose network
+      - DATABASE_URL=${DATABASE_URL:-postgres://neon:npg@neon-local:5432/neondb}
+      - NEON_FETCH_ENDPOINT=${NEON_FETCH_ENDPOINT:-http://neon-local:5432/sql}
+      - ARCJET_ENV=${ARCJET_ENV:-development}
+      - ARCJET_KEY=${ARCJET_KEY:-}
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-key-12345}
+    env_file:
+      - path: .env.development
+        required: false
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - neon-local
+    networks:
+      - neon-dev-net
+    restart: unless-stopped
+
+networks:
+  neon-dev-net:
+    driver: bridge

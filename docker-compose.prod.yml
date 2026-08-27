@@ -1,0 +1,33 @@
+services:
+  # ==========================================
+  # Application Service (Production Mode)
+  # Connects directly to Neon Cloud Serverless Database
+  # No local proxy container is used
+  # ==========================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: prod
+    container_name: acquisitions-app-prod
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=${PORT:-3000}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      # Production Neon Cloud connection string injected via environment
+      - DATABASE_URL=${DATABASE_URL}
+      - ARCJET_ENV=production
+      - ARCJET_KEY=${ARCJET_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+    env_file:
+      - path: .env.production
+        required: false
+    volumes:
+      # Persistent volume for application logs
+      - app-logs:/app/logs
+    restart: always
+
+volumes:
+  app-logs:
